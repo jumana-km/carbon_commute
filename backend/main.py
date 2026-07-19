@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Optional
 import math 
+import os # Imported to read environment variables dynamically
 
 app = FastAPI()
 
@@ -17,8 +18,8 @@ app.add_middleware(
 )
 
 # 1. Database Connection Configuration
-# Change 'localhost' to your MongoDB Atlas URI string if you are using the cloud
-MONGO_DETAILS = "mongodb://localhost:27017"
+# Reads from Render's cloud environment when live, defaults to local compass when offline.
+MONGO_DETAILS = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 client = AsyncIOMotorClient(MONGO_DETAILS)
 db = client.carbon_commute
 profile_collection = db.get_collection("user_profiles")
@@ -62,8 +63,6 @@ async def get_profile():
     return profile
 
 
-
-
 @app.post("/api/log-commute")
 async def log_commute(log: CommuteLog):
     profile = await get_or_create_profile(USER_ID)
@@ -77,7 +76,7 @@ async def log_commute(log: CommuteLog):
     
     multiplier = karma_multipliers.get(log.mechanism, 0)
     
-    # 2. FIX: Use math.ceil() so short trips get partial/rounded-up credits
+    # Use math.ceil() so short trips get partial/rounded-up credits
     earned_karma = math.ceil(log.distance * multiplier)
     
     # Safety net: If they covered any distance, guarantee at least 1 point
